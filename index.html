@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tilt+Warp&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> <!-- Link to the external CSS file -->
+</head>
+<body>
+    <h1>Tic-Tac-Toe</h1>
+    <div class="container">
+        <p>Enter your name:</p>
+        <input type="text" id="name" autocomplete="off" placeholder="Your name">
+        <p>Enter room ID:</p>
+        <input type="text" id="roomId" autocomplete="off" placeholder="Room ID">
+        <button id="find">Create/Join Room</button>
+    </div>
+    
+    <div id="game" style="display:none;">
+        <p id="userCont">You: <span id="user"></span></p>
+        <p id="roomInfo"></p> 
+        <p id="whosTurn"></p>
+        <div id="cont">
+            <button id="btn0" class="btn"></button>
+            <button id="btn1" class="btn"></button>
+            <button id="btn2" class="btn"></button>
+            <button id="btn3" class="btn"></button>
+            <button id="btn4" class="btn"></button>
+            <button id="btn5" class="btn"></button>
+            <button id="btn6" class="btn"></button>
+            <button id="btn7" class="btn"></button>
+            <button id="btn8" class="btn"></button>
+        </div>
+    </div>
+    <img id="spinner" src="./loading.gif" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);" alt="Loading...">
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        
+        document.getElementById('find').addEventListener("click", () => {
+            const name = document.getElementById("name").value;
+            const roomId = document.getElementById("roomId").value;
+
+            if (!name || !roomId) {
+                alert("Please enter both your name and room ID");
+                return;
+            }
+
+            document.getElementById("user").innerText = name;
+            socket.emit("createRoom", roomId, name);
+
+            document.querySelector(".container").style.display = "none"; //hiding the container means with open the game it is not visible
+        });
+
+        //room creation
+        socket.on("roomCreated", ({ roomId, playerSymbol }) => {
+            document.getElementById("game").style.display = "block";
+            document.getElementById("roomInfo").innerText = `Room ID: ${roomId}`; 
+            document.getElementById("whosTurn").innerText = `You are playing as ${playerSymbol}. Your turn!`;
+        });
+
+        //room joining process
+        socket.on("roomJoined", ({ roomId, players }) => {
+            document.getElementById("game").style.display = "block";
+            document.getElementById("roomInfo").innerText = `Room ID: ${roomId}`; 
+            const playerNames = players.map(player => player.name).join(", ");
+            document.getElementById("whosTurn").innerText = `Players: ${playerNames}. It's your turn!`;
+        });
+
+        //Update game event
+        socket.on("updateGame", (game) => {
+            game.moves.forEach(move => {
+                document.getElementById(`btn${move.position}`).innerText = move.player === game.players[0].name ? "X" : "O";
+            });
+        });
+
+        //game over scenorio
+        socket.on("gameOver", ({ winner }) => {
+            if (winner) {
+                alert(`${winner} won the game!`);
+            } else {
+                alert("It's a draw!");
+            }
+            resetGame();
+        });
+
+        document.querySelectorAll(".btn").forEach((btn, index) => {
+            btn.addEventListener("click", () => {
+                const playerName = document.getElementById("user").innerText;
+                socket.emit("playing", { roomId: document.getElementById("roomId").value, playerName, position: index });
+                btn.disabled = true; 
+            });
+        });
+
+        function resetGame() {
+            document.querySelectorAll(".btn").forEach(btn => {
+                btn.innerText = '';
+                btn.disabled = false; 
+            });
+            document.getElementById("game").style.display = "none";
+            document.getElementById("name").value = '';
+            document.getElementById("roomId").value = '';
+            document.querySelector(".container").style.display = "block"; 
+            document.getElementById("roomInfo").innerText = ''; 
+        }
+    </script>
+</body>
+</html>
